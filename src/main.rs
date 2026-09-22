@@ -30,8 +30,6 @@ impl<'a> ApplicationHandler for App<'a> {
 
         self.window = Some(window);
         pollster::block_on(self.init_wgpu());
-        self.window.as_ref().unwrap().request_redraw();
-        pollster::block_on(self.init_wgpu());
     }
 
     fn window_event(
