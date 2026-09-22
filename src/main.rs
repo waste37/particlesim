@@ -189,7 +189,7 @@ impl ApplicationHandler for App {
 }
 
 fn main() {
-    env_logger::Builder::new().filter_level(log::LevelFilter::max()).init();
+    env_logger::Builder::new().filter_level(log::LevelFilter::Info).init();
     let event_loop = EventLoop::new().unwrap();
     event_loop.set_control_flow(ControlFlow::Poll);
     let mut app = App::default();
