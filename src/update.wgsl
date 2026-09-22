@@ -9,5 +9,12 @@ struct Particle {
 @compute
 @workgroup_size(64)
 fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
+  let total = arrayLength(&particles_src);
+  let index = global_invocation_id.x;
 
+  if (index >= total) {
+    return;
+  }
+
+  particles_dst[index] = particles_src[index];
 }
