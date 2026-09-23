@@ -149,7 +149,7 @@ impl ApplicationHandler for App {
         let simulation = ParticleSim::new(&ParticleSimDescriptor {
             device: &state.device,
             surface_config: &state.surface.get_configuration().as_ref().unwrap(),
-            num_particles: 1000
+            num_particles: 10000
         });
 
         self.state = Some(state);
