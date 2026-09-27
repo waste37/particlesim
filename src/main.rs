@@ -10,7 +10,7 @@ use winit::event::{WindowEvent, MouseButton, ElementState};
 use winit::application::ApplicationHandler;
 use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
 
-use crate::particlesim::{ParticleSystem};
+use particlesim::{ParticleSystem, ParticleSimulationInput};
 
 #[derive(Debug, Clone)]
 enum FrameError {
@@ -144,6 +144,7 @@ impl State {
 struct App {
     state: Option<State>,
     simulation: Option<ParticleSystem>,
+    input: ParticleSimulationInput,
 }
 
 impl ApplicationHandler for App {
@@ -183,23 +184,22 @@ impl ApplicationHandler for App {
                     Err(FrameError::Fatal) => panic!("Fatal error while acquiring output texture")    
                 };
 
-
-                simulation.update(&mut ctx.encoder, ctx.delta_time);
+                simulation.update(&mut ctx.encoder, &self.input, ctx.delta_time);
                 simulation.render(&mut ctx.encoder, &ctx.target);
 
                 state.end_frame(ctx);
                 state.get_window().request_redraw();
             },
             WindowEvent::Resized(size) => state.resize(size),
-//            WindowEvent::MouseInput { 
-//                button: MouseButton::Left, state, .. 
-//            } => match state { 
-//                ElementState::Pressed => simulation.set_mouse_down(true);
-//                ElementState::Released => simulation.set_mouse_down(false);
-//            },
-//            WindowEvent::CursorMoved { 
-//                position, .. 
-//            } => simulation.set_mouse_pos(position.x, position.y),
+            WindowEvent::MouseInput { 
+                button: MouseButton::Left, state, .. 
+            } => match state { 
+                ElementState::Pressed => self.input.mouse_down = true,
+                ElementState::Released => self.input.mouse_down = false,
+            },
+            WindowEvent::CursorMoved { position, .. } => { 
+                self.input.mouse_position = [position.x as f32, position.y as f32];
+            }
             _ => (),
         }
     }
