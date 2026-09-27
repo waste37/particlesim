@@ -1,15 +1,16 @@
 mod particlesim;
 
 use std::fmt;
+use std::time;
 use std::sync::Arc;
 use std::error::Error;
 
 use winit::window::{Window, WindowId};
-use winit::event::WindowEvent;
+use winit::event::{WindowEvent, MouseButton, ElementState};
 use winit::application::ApplicationHandler;
 use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
 
-use crate::particlesim::{ParticleSim, ParticleSimDescriptor};
+use crate::particlesim::{ParticleSystem};
 
 #[derive(Debug, Clone)]
 enum FrameError {
@@ -30,6 +31,8 @@ impl Error for FrameError {
 struct FrameContext {
     encoder: wgpu::CommandEncoder,
     surface_texture: wgpu::SurfaceTexture,
+    target: wgpu::TextureView,
+    delta_time: f32
 }
 
 struct State {
@@ -40,6 +43,7 @@ struct State {
     device: wgpu::Device,
     queue: wgpu::Queue,
     size: winit::dpi::PhysicalSize<u32>,
+    frame_time: time::Instant,
 }
 
 impl State {
@@ -58,9 +62,9 @@ impl State {
             .request_device(&Default::default())
             .await
             .unwrap();
-        
-        let size = window.inner_size();
 
+        let size = window.inner_size();
+        
         let mut state = Self {
             window,
             instance,
@@ -69,6 +73,7 @@ impl State {
             device,
             queue,
             size,
+            frame_time: time::Instant::now(),
         };
 
         state.configure_surface();
@@ -120,8 +125,13 @@ impl State {
             Err(other) => return Err(other)
         };
 
+        let delta_time = self.frame_time.elapsed().as_secs_f32();
+        self.frame_time = time::Instant::now();
+
         let encoder = self.device.create_command_encoder(&Default::default());
-        return Ok(FrameContext {encoder, surface_texture} );
+        let target = surface_texture.texture.create_view(&Default::default());
+
+        return Ok(FrameContext {encoder, surface_texture, target, delta_time});
     }
 
     fn end_frame(&self, ctx: FrameContext) {
@@ -133,7 +143,7 @@ impl State {
 #[derive(Default)]
 struct App {
     state: Option<State>,
-    simulation: Option<ParticleSim>
+    simulation: Option<ParticleSystem>,
 }
 
 impl ApplicationHandler for App {
@@ -146,11 +156,8 @@ impl ApplicationHandler for App {
 
         let state = pollster::block_on(State::new(window.clone()));
 
-        let simulation = ParticleSim::new(&ParticleSimDescriptor {
-            device: &state.device,
-            surface_config: &state.surface.get_configuration().as_ref().unwrap(),
-            num_particles: 10000
-        });
+        let render_format = state.surface.get_configuration().as_ref().unwrap().format;
+        let simulation = ParticleSystem::new(&state.device, render_format, 10000);
 
         self.state = Some(state);
         self.simulation = Some(simulation);
@@ -176,13 +183,23 @@ impl ApplicationHandler for App {
                     Err(FrameError::Fatal) => panic!("Fatal error while acquiring output texture")    
                 };
 
-                simulation.update_particles(&mut ctx.encoder);
-                simulation.draw_particles(&mut ctx.encoder, &ctx.surface_texture);
+
+                simulation.update(&mut ctx.encoder, ctx.delta_time);
+                simulation.render(&mut ctx.encoder, &ctx.target);
 
                 state.end_frame(ctx);
                 state.get_window().request_redraw();
             },
             WindowEvent::Resized(size) => state.resize(size),
+//            WindowEvent::MouseInput { 
+//                button: MouseButton::Left, state, .. 
+//            } => match state { 
+//                ElementState::Pressed => simulation.set_mouse_down(true);
+//                ElementState::Released => simulation.set_mouse_down(false);
+//            },
+//            WindowEvent::CursorMoved { 
+//                position, .. 
+//            } => simulation.set_mouse_pos(position.x, position.y),
             _ => (),
         }
     }
